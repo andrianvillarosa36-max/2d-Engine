@@ -156,7 +156,7 @@
     settings: {
       theme: 'dark',
       textSize: 16,
-      version: '0.1.0',
+      version: '0.1.1',
       accent: '#f7b84d'
     },
     ui: {
@@ -272,6 +272,114 @@
     }
     return (bytes / 1024).toFixed(1);
   }
+
+  function renderProjectThumb(p){
+    const terrain = p.terrains?.[0];
+    if (p.assets?.sprite) return `<img src="${p.assets.sprite}" alt="project sprite">`;
+    if (!terrain) return `<span class="tiny">No map</span>`;
+    const sample = terrain.tiles?.slice(0,3).map(row => row.slice(0,3).map(t => tileInfo(t)[0]).join('')).join('<br>') || '';
+    return `<div style="font-size:18px;line-height:1.1;text-align:center;letter-spacing:1px">${sample || '<span class="tiny">Empty</span>'}</div>`;
+  }
+  function normalizeImportedProject(p){
+    const terrainList = Array.isArray(p?.terrains) && p.terrains.length ? p.terrains : [];
+    const terrains = terrainList.map((t, i) => {
+      const width = Number(t?.width) || 18;
+      const height = Number(t?.height) || 12;
+      const fallback = createTerrain(t?.name || `Terrain ${i + 1}`, width, height);
+      const tiles = Array.isArray(t?.tiles) && t.tiles.length
+        ? t.tiles.map(row => Array.isArray(row) ? row.slice(0, width) : fallback.tiles[0].slice())
+        : fallback.tiles;
+      return {
+        id: uid(),
+        name: t?.name || `Terrain ${i + 1}`,
+        width,
+        height,
+        tiles,
+        connections: Array.isArray(t?.connections) ? t.connections.map(String) : []
+      };
+    });
+    if (!terrains.length) terrains.push(createTerrain('Terrain 1', 18, 12));
+
+    return {
+      id: uid(),
+      name: String(p?.name || 'Imported Project'),
+      description: String(p?.description || ''),
+      type: ['menu','tilemap','combined'].includes(p?.type) ? p.type : 'combined',
+      createdAt: Number(p?.createdAt) || Date.now(),
+      updatedAt: Date.now(),
+      favorite: !!p?.favorite,
+      assets: { sprite: p?.assets?.sprite || null },
+      terrains
+    };
+  }
+  function handleImportProjects(file){
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const parsed = JSON.parse(String(reader.result));
+        const incoming = Array.isArray(parsed) ? parsed : [parsed];
+        const imported = incoming.map(normalizeImportedProject);
+        state.projects = [...imported, ...state.projects];
+        state.ui.menuOpenProjectId = null;
+        saveState();
+        render();
+        showToast(`Imported ${imported.length} project${imported.length === 1 ? '' : 's'}`);
+      }catch(err){
+        alert('That file is not a valid project JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  }
+  function renameTerrain(){
+    const t = currentTerrain(); if(!t) return;
+    showModal(`
+      <h3>Rename terrain</h3>
+      <div class="field"><label>New name</label><input id="terrainRenameInput" value="${safeText(t.name)}" /></div>
+      <div class="modal-actions">
+        <button class="btn secondary" data-close-modal>Cancel</button>
+        <button class="btn primary" data-confirm-terrain-rename>Save</button>
+      </div>
+    `);
+    modalBackdrop.querySelector('[data-confirm-terrain-rename]')?.addEventListener('click', ()=>{
+      const value = modalBackdrop.querySelector('#terrainRenameInput')?.value?.trim();
+      if (value){
+        t.name = value;
+        t.connections = Array.from(new Set((t.connections || []).map(String)));
+        const p = currentProject(); if (p) p.updatedAt = Date.now();
+      }
+      closeModal(); saveState(); render(); showToast('Terrain renamed');
+    });
+  }
+  function duplicateTerrain(){
+    const p = currentProject(); const t = currentTerrain(); if(!p || !t) return;
+    const copy = clone(t);
+    copy.id = uid();
+    copy.name = `${t.name} Copy`;
+    copy.connections = [];
+    p.terrains.splice(p.terrains.indexOf(t) + 1, 0, copy);
+    p.updatedAt = Date.now();
+    state.ui.activeTerrainId = copy.id;
+    saveState(); render(); showToast('Terrain duplicated');
+  }
+  function deleteTerrain(){
+    const p = currentProject(); const t = currentTerrain(); if(!p || p.terrains.length <= 1 || !t) return showToast('A project must keep at least one terrain');
+    showModal(`
+      <h3>Delete terrain?</h3>
+      <p class="muted">This will remove <strong>${safeText(t.name)}</strong> from the project.</p>
+      <div class="modal-actions">
+        <button class="btn secondary" data-close-modal>Cancel</button>
+        <button class="btn danger" data-confirm-terrain-delete>Delete</button>
+      </div>
+    `);
+    modalBackdrop.querySelector('[data-confirm-terrain-delete]')?.addEventListener('click', ()=>{
+      p.terrains = p.terrains.filter(x => x.id !== t.id);
+      p.terrains.forEach(tt => { tt.connections = (tt.connections || []).filter(name => name !== t.name); });
+      state.ui.activeTerrainId = p.terrains[0]?.id || null;
+      p.updatedAt = Date.now();
+      closeModal(); saveState(); render(); showToast('Terrain deleted');
+    });
+  }
   function renderHome(){
     const recent = [...state.projects].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,3);
     return `
@@ -326,20 +434,25 @@
             <input id="projectSearch" value="${safeText(state.ui.projectSearch)}" placeholder="Search by name or type" />
           </div>
           <div class="toolbar">
+            <button class="btn secondary" data-action="import-projects">📥 Import projects</button>
             <button class="btn secondary" data-action="sort-recents">⬇️ Recent first</button>
             <button class="btn secondary" data-action="sort-name">🔤 Name</button>
           </div>
         </div>
+        <input type="file" id="importProjectsInput" accept="application/json" hidden />
         <div class="project-list" id="projectList">
           ${filtered.length ? filtered.map((p, i) => `
             <div class="card project" draggable="true" data-project-card="${p.id}" data-index="${p._idx}">
-              <div>
-                <h4>${safeText(p.name)}</h4>
-                <p>${safeText(p.description || 'No description yet.')}</p>
-                <div class="project-meta">
-                  <span class="pill">${currentProjectTypeLabel(p.type)}</span>
-                  <span class="pill">${p.terrains.length} terrain${p.terrains.length===1?'':'s'}</span>
-                  <span class="pill">Updated ${fmtDate(p.updatedAt)}</span>
+              <div style="display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:start">
+                <div class="sprite-box" style="width:72px;height:72px;border-radius:18px">${renderProjectThumb(p)}</div>
+                <div>
+                  <h4>${safeText(p.name)} ${p.favorite ? '⭐' : ''}</h4>
+                  <p>${safeText(p.description || 'No description yet.')}</p>
+                  <div class="project-meta">
+                    <span class="pill">${currentProjectTypeLabel(p.type)}</span>
+                    <span class="pill">${p.terrains.length} terrain${p.terrains.length===1?'':'s'}</span>
+                    <span class="pill">Updated ${fmtDate(p.updatedAt)}</span>
+                  </div>
                 </div>
               </div>
               <div class="kebab">
@@ -489,6 +602,9 @@
               <button class="btn secondary" data-action="terrain-expand">➕ Expand terrain</button>
               <button class="btn good" data-action="terrain-add">+Terrain</button>
               <button class="btn secondary" data-action="terrain-connect">🔗 Connect road</button>
+              <button class="btn secondary" data-action="terrain-rename">✏ Rename</button>
+              <button class="btn secondary" data-action="terrain-duplicate">⎘ Duplicate</button>
+              <button class="btn danger" data-action="terrain-delete">🗑 Delete</button>
             </div>
           </div>
           <div class="tiles-grid" id="tilesGrid" style="grid-template-columns:repeat(${terrain.width}, minmax(0, 1fr));">${grid}</div>
@@ -648,7 +764,7 @@
         </div>
         <div class="card pad section" style="margin-top:14px">
           <h3>About this starter</h3>
-          <p class="subtitle">This version includes the app shell, project manager, editable terrains, connected +Terrain creation, and working sprite image upload preview. It is a foundation build we can keep expanding.</p>
+          <p class="subtitle">This version includes the app shell, project manager, project import/export, editable terrains, connected +Terrain creation, terrain rename/duplicate/delete, and working sprite image upload preview. It is a foundation build we can keep expanding.</p>
         </div>
       </section>
     `;
@@ -678,6 +794,10 @@
     content.querySelectorAll('[data-project-favorite]').forEach(btn => btn.onclick = ()=> toggleFavorite(btn.dataset.projectFavorite));
     content.querySelectorAll('[data-project-export]').forEach(btn => btn.onclick = ()=> exportProject(btn.dataset.projectExport));
     content.querySelectorAll('[data-project-delete]').forEach(btn => btn.onclick = ()=> confirmDeleteProject(btn.dataset.projectDelete));
+
+    const importInput = $('#importProjectsInput');
+    content.querySelector('[data-action="import-projects"]')?.addEventListener('click', ()=> importInput?.click());
+    if(importInput) importInput.onchange = (e)=> { handleImportProjects(e.target.files?.[0]); e.target.value = ''; };
 
     // drag reorder
     const projectCards = [...content.querySelectorAll('[data-project-card]')];
@@ -718,6 +838,9 @@
     content.querySelector('[data-action="terrain-add"]')?.addEventListener('click', addConnectedTerrain);
     content.querySelector('[data-action="terrain-connect"]')?.addEventListener('click', connectSelectedTerrains);
     content.querySelector('[data-action="terrain-expand"]')?.addEventListener('click', expandCurrentTerrain);
+    content.querySelector('[data-action="terrain-rename"]')?.addEventListener('click', renameTerrain);
+    content.querySelector('[data-action="terrain-duplicate"]')?.addEventListener('click', duplicateTerrain);
+    content.querySelector('[data-action="terrain-delete"]')?.addEventListener('click', deleteTerrain);
     content.querySelector('[data-action="clear-sprite"]')?.addEventListener('click', clearSprite);
 
     // tile painting
@@ -858,6 +981,7 @@
       p.assets.sprite = dataUrl;
       p.updatedAt = Date.now();
       saveState(); render();
+      e.target.value = '';
       showToast('Sprite image uploaded');
     };
     reader.readAsDataURL(file);
