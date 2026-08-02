@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>2D RPG Engine Studio</title>
+  <style>
+    :root{
+      --bg:#171426; --panel:#211c38; --panel2:#2b2444; --line:#463a6d;
+      --text:#f4efff; --muted:#b4a8d2; --accent:#f7b84d; --accent2:#8ad6ff;
+      --good:#58d68d; --bad:#ff6b6b; --chip:#342b52; --shadow:0 12px 30px rgba(0,0,0,.25);
+      --radius:18px; --font:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; --text-size:16px;
+    }
+    [data-theme="light"]{
+      --bg:#f4f1fb; --panel:#ffffff; --panel2:#f3edff; --line:#d7ccee;
+      --text:#221a35; --muted:#665a88; --accent:#d08c16; --accent2:#126c9c;
+      --good:#128f52; --bad:#c43c3c; --chip:#efe7fb; --shadow:0 12px 30px rgba(55,35,90,.12);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{font-family:var(--font); background:linear-gradient(180deg,var(--bg), color-mix(in srgb, var(--bg) 84%, #000 16%)); color:var(--text); font-size:var(--text-size); overflow:hidden;}
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer}
+    .app{height:100vh;display:grid;grid-template-rows:1fr auto}
+    .content{overflow:auto;padding:16px 16px 92px;scroll-behavior:smooth}
+    .screen{display:none;animation:fade .18s ease-out}
+    .screen.active{display:block}
+    @keyframes fade{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:none}}
+    .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+    .title{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0}
+    .subtitle{margin:.35rem 0 0;color:var(--muted);line-height:1.45}
+    .card{background:linear-gradient(180deg,var(--panel), color-mix(in srgb, var(--panel) 90%, #000 10%)); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .card.pad{padding:16px}
+    .grid{display:grid;gap:14px}
+    .grid.cols2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    @media (max-width:860px){.grid.cols2,.grid.cols3{grid-template-columns:1fr}}
+    .hero{display:grid;gap:14px;grid-template-columns:1.3fr .9fr;align-items:stretch}
+    @media (max-width:960px){.hero{grid-template-columns:1fr}}
+    .hero-banner{padding:20px;min-height:220px;background:radial-gradient(circle at top right, rgba(247,184,77,.20), transparent 24%), radial-gradient(circle at bottom left, rgba(88,214,141,.15), transparent 22%), linear-gradient(180deg,var(--panel),var(--panel2));display:flex;flex-direction:column;justify-content:space-between;gap:18px}
+    .hero-banner h2{margin:0;font-size:2rem;line-height:1.05}
+    .hero-banner p{color:var(--muted); line-height:1.55; max-width:60ch}
+    .badge{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:8px 12px;width:max-content;font-size:.92rem}
+    .btn{border:none;border-radius:14px;padding:12px 16px;background:var(--chip);color:var(--text);border:1px solid var(--line);transition:.15s transform,.15s opacity,.15s background; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:8px}
+    .btn:hover{opacity:.96}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{background:var(--accent); color:#19130a; border-color:transparent; font-weight:700}
+    .btn.secondary{background:var(--panel2)}
+    .btn.good{background:color-mix(in srgb, var(--good) 14%, var(--chip)); border-color:color-mix(in srgb, var(--good) 30%, var(--line))}
+    .btn.danger{background:transparent;color:var(--bad);border-color:color-mix(in srgb, var(--bad) 30%, var(--line))}
+    .btn.link{background:transparent}
+    .fab{position:fixed;right:18px;bottom:82px;width:58px;height:58px;border-radius:18px;background:var(--accent);color:#1b1408;border:none;box-shadow:var(--shadow);font-size:1.55rem;display:grid;place-items:center;z-index:25}
+    .section{margin-top:16px}
+    .section h3{margin:0 0 10px;font-size:1.08rem}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    .muted{color:var(--muted)}
+    .nav{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 12px;background:color-mix(in srgb, var(--bg) 88%, #000 12%);border-top:1px solid var(--line);backdrop-filter:blur(16px)}
+    .nav button{min-height:54px;border-radius:16px;background:transparent;color:var(--muted);border:1px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:.82rem}
+    .nav button.active{background:var(--panel);color:var(--text);border-color:var(--line);box-shadow:var(--shadow)}
+    .icon{font-size:1.12rem;line-height:1}
+    .project-list{display:grid;gap:12px}
+    .project{display:grid;grid-template-columns:1fr auto;gap:10px;padding:14px;cursor:grab}
+    .project.dragging{opacity:.45}
+    .project h4{margin:0 0 6px;font-size:1.02rem}
+    .project p{margin:0;color:var(--muted);font-size:.94rem;line-height:1.45}
+    .project-meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+    .pill{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:6px 10px;font-size:.84rem}
+    .kebab{position:relative;align-self:start}
+    .kebab button{width:42px;height:42px;border-radius:12px;background:var(--chip);color:var(--text);border:1px solid var(--line)}
+    .menu{position:absolute;right:0;top:46px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);min-width:180px;display:none;overflow:hidden;z-index:5}
+    .menu.open{display:block}
+    .menu button{display:block;width:100%;text-align:left;padding:12px 14px;border:none;background:transparent;color:var(--text);border-bottom:1px solid color-mix(in srgb, var(--line) 70%, transparent 30%)}
+    .menu button:last-child{border-bottom:none}
+    .menu button.danger{color:var(--bad)}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px}
+    .toolbar .btn{padding:10px 14px}
+    .inputs{display:grid;gap:12px}
+    .field{display:grid;gap:6px}
+    .field label{font-size:.88rem;color:var(--muted)}
+    .field input,.field textarea,.field select{width:100%;padding:12px 13px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text);outline:none}
+    .field textarea{min-height:88px;resize:vertical}
+    .seg{display:flex;gap:8px;flex-wrap:wrap}
+    .seg .choice{flex:1 1 150px;border-radius:16px;padding:12px;border:1px solid var(--line);background:var(--panel2);text-align:left}
+    .choice.active{outline:2px solid color-mix(in srgb, var(--accent) 55%, transparent)}
+    .choice strong{display:block;margin-bottom:3px}
+    .choice span{color:var(--muted);font-size:.9rem;line-height:1.35}
+    .stepper{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .step{padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);font-size:.85rem}
+    .step.active{color:var(--text);background:var(--chip)}
+    .editor-shell{display:grid;grid-template-columns:280px 1fr;gap:14px;align-items:start}
+    @media (max-width:980px){.editor-shell{grid-template-columns:1fr}}
+    .sidebar{padding:14px;display:grid;gap:14px}
+    .sidebar h4,.panel h4{margin:0 0 10px}
+    .stack{display:grid;gap:8px}
+    .list{display:grid;gap:8px}
+    .list-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-radius:14px;background:var(--panel2);border:1px solid var(--line)}
+    .list-item.active{outline:2px solid color-mix(in srgb, var(--accent) 50%, transparent)}
+    .mini{font-size:.82rem;color:var(--muted)}
+    .editor-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{padding:10px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}
+    .tab.active{background:var(--chip);color:var(--text)}
+    .panel{padding:14px}
+    .workspace{display:grid;gap:14px}
+    .map-area{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px}
+    @media (max-width:1080px){.map-area{grid-template-columns:1fr}}
+    .map-stage{padding:14px}
+    .tiles-grid{display:grid;gap:2px;user-select:none;touch-action:none}
+    .tile{aspect-ratio:1; min-width:18px; border:1px solid rgba(255,255,255,.05); background:var(--panel2); display:grid; place-items:center; font-size:18px; line-height:1; color:var(--text); padding:0}
+    .tile.painting{outline:2px solid color-mix(in srgb, var(--accent2) 55%, transparent)}
+    .palette{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+    .swatch{border:1px solid var(--line);border-radius:14px;padding:10px 8px;text-align:center;background:var(--panel2);font-size:.86rem;color:var(--text)}
+    .swatch.active{outline:2px solid color-mix(in srgb, var(--accent) 55%, transparent)}
+    .swatch .emoji{display:block;font-size:1.25rem;margin-bottom:4px}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:700px){.split{grid-template-columns:1fr}}
+    .hint{font-size:.85rem;color:var(--muted);line-height:1.45}
+    .hero-tiles{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
+    @media (max-width:700px){.hero-tiles{grid-template-columns:1fr}}
+    .tiny{font-size:.78rem;color:var(--muted)}
+    .setting-row{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+    .modal-backdrop.open{display:flex}
+    .modal{width:min(680px,100%);max-height:90vh;overflow:auto;padding:16px}
+    .modal h3{margin:0 0 10px}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:12px 14px;border-radius:999px;display:none;z-index:60}
+    .toast.show{display:block;animation:fade .2s ease-out}
+    .sprite-preview{display:grid;gap:10px;align-items:start;grid-template-columns:120px 1fr}
+    @media (max-width:700px){.sprite-preview{grid-template-columns:1fr}}
+    .sprite-box{width:120px;height:120px;border-radius:16px;border:1px dashed var(--line);display:grid;place-items:center;overflow:hidden;background:var(--panel2)}
+    .sprite-box img{max-width:100%;max-height:100%;image-rendering:pixelated}
+    .footer-note{padding:0 16px 18px;color:var(--muted);font-size:.85rem}
+    .canvas{display:none}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="content" id="content"></main>
+    <button class="fab" id="fab" title="Create project">+</button>
+    <nav class="nav">
+      <button data-screen="home" class="active"><span class="icon">🏠</span><span>Home</span></button>
+      <button data-screen="projects"><span class="icon">📁</span><span>Projects</span></button>
+      <button data-screen="create"><span class="icon">➕</span><span>Create</span></button>
+      <button data-screen="settings"><span class="icon">⚙️</span><span>Settings</span></button>
+    </nav>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true"></div>
+  <div class="toast" id="toast"></div>
+  <canvas class="canvas" id="spriteCanvas"></canvas>
+
+  <script>
+  const LS_KEY = 'rpg-engine-studio-v1';
+  const initialState = {
+    settings: {
+      theme: 'dark',
+      textSize: 16,
+      version: '0.1.0',
+      accent: '#f7b84d'
+    },
+    ui: {
+      screen: 'home',
+      activeProjectId: null,
+      activeTerrainId: null,
+      editorTab: 'tilemap',
+      createStep: 0,
+      menuOpenProjectId: null,
+      paintTile: 'grass',
+      painting: false,
+      projectSearch: '',
+      modal: null
+    },
+    projects: [
+      {
+        id: uid(),
+        name: 'My First RPG',
+        description: 'A starter world with one village terrain.',
+        type: 'combined',
+        createdAt: Date.now() - 86400000 * 4,
+        updatedAt: Date.now() - 86400000,
+        favorite: true,
+        assets: { sprite: null },
+        terrains: [createTerrain('Terrain 1', 18, 12), createTerrain('Terrain 2', 18, 12)]
+      }
+    ]
+  };
+
+  let state = loadState();
+  const $ = s => document.querySelector(s);
+  const content = $('#content');
+  const modalBackdrop = $('#modalBackdrop');
+  const toast = $('#toast');
+  const spriteCanvas = $('#spriteCanvas');
+
+  function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+  function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+  function createTile(id='grass'){ return id; }
+  function createTerrain(name='Terrain', w=18, h=12){
+    const tiles = Array.from({length:h}, (_,y)=>Array.from({length:w}, (_,x)=> (x===0||y===0||x===w-1||y===h-1) ? 'grass' : 'grass'));
+    return { id: uid(), name, width:w, height:h, tiles, connections: [] };
+  }
+  function loadState(){
+    try{
+      const saved = localStorage.getItem(LS_KEY);
+      if(!saved) return clone(initialState);
+      const parsed = JSON.parse(saved);
+      return {
+        ...clone(initialState),
+        ...parsed,
+        settings: { ...initialState.settings, ...(parsed.settings||{}) },
+        ui: { ...initialState.ui, ...(parsed.ui||{}) },
+        projects: Array.isArray(parsed.projects) && parsed.projects.length ? parsed.projects : clone(initialState.projects)
+      };
+    }catch(e){ return clone(initialState); }
+  }
+  function saveState(){
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    refreshTheme();
+  }
+  function refreshTheme(){
+    document.documentElement.setAttribute('data-theme', state.settings.theme || 'dark');
+    document.documentElement.style.setProperty('--text-size', (state.settings.textSize||16) + 'px');
+    document.documentElement.style.setProperty('--accent', state.settings.accent || '#f7b84d');
+  }
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toast.classList.remove('show'), 1800);
+  }
+  function setScreen(screen){
+    state.ui.screen = screen;
+    saveState(); render();
+  }
+  function currentProject(){ return state.projects.find(p => p.id === state.ui.activeProjectId) || null; }
+  function currentTerrain(){
+    const p = currentProject();
+    if(!p) return null;
+    return p.terrains.find(t=>t.id===state.ui.activeTerrainId) || p.terrains[0] || null;
+  }
+  function updateProject(projectId, fn){
+    const p = state.projects.find(x=>x.id===projectId);
+    if(!p) return;
+    fn(p);
+    p.updatedAt = Date.now();
+    saveState(); render();
+  }
+  function openProject(projectId){
+    state.ui.activeProjectId = projectId;
+    const p = currentProject();
+    state.ui.activeTerrainId = p?.terrains?.[0]?.id || null;
+    state.ui.editorTab = p?.type === 'menu' ? 'menu' : 'tilemap';
+    state.ui.screen = 'create';
+    saveState(); render();
+  }
+  function currentProjectTypeLabel(type){
+    return ({menu:'Game menu', tilemap:'Tilemap', combined:'Complete RPG'}[type] || type || 'Project');
+  }
+  function tileInfo(tile){
+    const map = {
+      grass: ['🌿','Grass'], water:['💧','Water'], tree:['🌳','Tree'], road:['🛣️','Road'], rock:['🪨','Rock'], house:['🏠','House'], sand:['🟨','Sand'], path:['⬜','Path']
+    };
+    return map[tile] || ['·',tile];
+  }
+  function safeText(s){ return String(s ?? '').replace(/[&<>\"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+  function fmtDate(ts){ return new Date(ts).toLocaleString([], { year:'numeric', month:'short', day:'numeric' }); }
+  function localCacheKB(){
+    let bytes = 0;
+    for (const k in localStorage) {
+      if (Object.prototype.hasOwnProperty.call(localStorage, k)) bytes += localStorage.getItem(k).length + k.length;
+    }
+    return (bytes / 1024).toFixed(1);
+  }
+  function renderHome(){
+    const recent = [...state.projects].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,3);
+    return `
+      <section class="hero">
+        <div class="card hero-banner pad">
+          <div>
+            <span class="badge">✨ 2D RPG Engine Studio</span>
+            <h2>Build RPG menus, worlds, and tilemaps from your phone.</h2>
+            <p>A visual Android-friendly game builder with projects, terrain editing, asset import, and a growing editor workspace. This is the foundation build that we can expand into a full app step by step.</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn primary" data-action="new-project">➕ Create a project</button>
+            <button class="btn secondary" data-action="go-projects">📁 Open projects</button>
+            <button class="btn secondary" data-action="go-settings">⚙️ Settings</button>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card pad">
+            <h3>Quick facts</h3>
+            <div class="stack">
+              <div class="list-item"><span>Home</span><span class="mini">Introduction + shortcuts</span></div>
+              <div class="list-item"><span>Projects</span><span class="mini">Rename, delete, reorder</span></div>
+              <div class="list-item"><span>Create Project</span><span class="mini">Menu + Tilemap + Combined</span></div>
+              <div class="list-item"><span>Settings</span><span class="mini">Theme, text size, cache</span></div>
+            </div>
+          </div>
+          <div class="card pad">
+            <h3>Recently opened</h3>
+            <div class="stack">${recent.length ? recent.map(p=>`<div class="list-item" role="button" data-open-project="${p.id}"><div><strong>${safeText(p.name)}</strong><div class="mini">${currentProjectTypeLabel(p.type)} • Updated ${fmtDate(p.updatedAt)}</div></div><span>▶</span></div>`).join('') : '<div class="muted">No projects yet.</div>'}</div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+  function renderProjects(){
+    const q = state.ui.projectSearch.trim().toLowerCase();
+    const filtered = state.projects
+      .map((p,idx)=>({...p,_idx:idx}))
+      .filter(p => !q || p.name.toLowerCase().includes(q) || currentProjectTypeLabel(p.type).toLowerCase().includes(q));
+    return `
+      <section>
+        <div class="topbar">
+          <div>
+            <h2 class="title">Projects</h2>
+            <p class="subtitle">View, reorder, rename, duplicate, or delete your projects.</p>
+          </div>
+          <button class="btn primary" data-action="new-project">➕ Create a project</button>
+        </div>
+        <div class="card pad section-head">
+          <div class="field" style="min-width:min(100%,320px);flex:1">
+            <label>Search projects</label>
+            <input id="projectSearch" value="${safeText(state.ui.projectSearch)}" placeholder="Search by name or type" />
+          </div>
+          <div class="toolbar">
+            <button class="btn secondary" data-action="sort-recents">⬇️ Recent first</button>
+            <button class="btn secondary" data-action="sort-name">🔤 Name</button>
+          </div>
+        </div>
+        <div class="project-list" id="projectList">
+          ${filtered.length ? filtered.map((p, i) => `
+            <div class="card project" draggable="true" data-project-card="${p.id}" data-index="${p._idx}">
+              <div>
+                <h4>${safeText(p.name)}</h4>
+                <p>${safeText(p.description || 'No description yet.')}</p>
+                <div class="project-meta">
+                  <span class="pill">${currentProjectTypeLabel(p.type)}</span>
+                  <span class="pill">${p.terrains.length} terrain${p.terrains.length===1?'':'s'}</span>
+                  <span class="pill">Updated ${fmtDate(p.updatedAt)}</span>
+                </div>
+              </div>
+              <div class="kebab">
+                <button type="button" data-kebab="${p.id}" aria-label="Project options">⋮</button>
+                <div class="menu ${state.ui.menuOpenProjectId===p.id ? 'open' : ''}" data-menu-for="${p.id}">
+                  <button data-project-open="${p.id}">Open project</button>
+                  <button data-project-rename="${p.id}">Rename</button>
+                  <button data-project-duplicate="${p.id}">Duplicate</button>
+                  <button data-project-favorite="${p.id}">${p.favorite ? 'Unfavorite' : 'Favorite'}</button>
+                  <button data-project-export="${p.id}">Export JSON</button>
+                  <button class="danger" data-project-delete="${p.id}">Delete</button>
+                </div>
+              </div>
+            </div>
+          `).join('') : '<div class="card pad"><div class="muted">No projects found.</div></div>'}
+        </div>
+        <div class="footer-note">Tip: drag a project card up or down to reorder it.</div>
+      </section>
+    `;
+  }
+  function createProjectWizard(){
+    const step = state.ui.createStep;
+    const stepLabels = ['Name', 'Type', 'Finish'];
+    return `
+      <section>
+        <div class="topbar">
+          <div>
+            <h2 class="title">Create Project</h2>
+            <p class="subtitle">Create a new game project or open an existing one for editing.</p>
+          </div>
+          ${state.ui.activeProjectId ? '<button class="btn secondary" data-action="close-project">⬅️ Back to project list</button>' : ''}
+        </div>
+        <div class="stepper">${stepLabels.map((s,i)=>`<div class="step ${i===step?'active':''}">${i+1}. ${s}</div>`).join('')}</div>
+        <div class="grid cols2">
+          <div class="card pad">
+            ${step === 0 ? `
+              <div class="inputs">
+                <div class="field">
+                  <label>Project name</label>
+                  <input id="newProjectName" placeholder="My RPG World" />
+                </div>
+                <div class="field">
+                  <label>Description</label>
+                  <textarea id="newProjectDesc" placeholder="Describe your project..."></textarea>
+                </div>
+                <div class="field">
+                  <label>Project process</label>
+                  <div class="seg">
+                    <button class="choice ${state.ui.createType==='menu'?'active':''}" data-type-choice="menu"><strong>Game menu</strong><span>Build menus, HUDs, and overlays.</span></button>
+                    <button class="choice ${state.ui.createType==='tilemap'?'active':''}" data-type-choice="tilemap"><strong>Tilemap editor</strong><span>Build your gameplay world and terrains.</span></button>
+                    <button class="choice ${state.ui.createType==='combined'?'active':''}" data-type-choice="combined"><strong>Combined project</strong><span>Menu + gameplay in one project.</span></button>
+                  </div>
+                </div>
+                <div class="toolbar">
+                  <button class="btn primary" data-action="create-step-next">Continue</button>
+                </div>
+              </div>` : ''}
+            ${step === 1 ? `
+              <div class="inputs">
+                <div class="field">
+                  <label>Editor tools included</label>
+                  <div class="hero-tiles">
+                    <div class="card pad"><strong>Game menu</strong><div class="tiny">Buttons, layouts, HUD, settings, dialogue.</div></div>
+                    <div class="card pad"><strong>Tilemap editor</strong><div class="tiny">Terrain painting, connections, layers, NPCs.</div></div>
+                    <div class="card pad"><strong>Asset manager</strong><div class="tiny">Import sprites, icons, and tilesets.</div></div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Choose a starting preset</label>
+                  <select id="newProjectPreset">
+                    <option value="empty">Empty project</option>
+                    <option value="village">Village starter</option>
+                    <option value="forest">Forest starter</option>
+                    <option value="menu">Main menu starter</option>
+                  </select>
+                </div>
+                <div class="toolbar">
+                  <button class="btn secondary" data-action="create-step-back">Back</button>
+                  <button class="btn primary" data-action="create-step-next">Continue</button>
+                </div>
+              </div>` : ''}
+            ${step === 2 ? `
+              <div class="inputs">
+                <div class="card pad">
+                  <h3>Ready to create</h3>
+                  <div class="muted">Press create project to generate your workspace. You can always edit the type later.</div>
+                </div>
+                <div class="toolbar">
+                  <button class="btn secondary" data-action="create-step-back">Back</button>
+                  <button class="btn primary" data-action="create-project">Create project</button>
+                </div>
+              </div>` : ''}
+          </div>
+          <div class="card pad">
+            ${state.ui.activeProjectId ? renderEditor() : `
+              <h3>Project types</h3>
+              <div class="stack">
+                <div class="list-item"><strong>Game menu</strong><span class="mini">UI and menus</span></div>
+                <div class="list-item"><strong>Tilemap editor</strong><span class="mini">Gameplay world</span></div>
+                <div class="list-item"><strong>Combined project</strong><span class="mini">Both editors together</span></div>
+              </div>
+              <p class="hint" style="margin-top:12px">Open a project from the Projects page to edit its terrains, sprite image, and assets.</p>
+            `}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+  function renderEditor(){
+    const p = currentProject();
+    if(!p) return '<div class="card pad">No project selected.</div>';
+    const tab = state.ui.editorTab;
+    const tabs = p.type === 'menu' ? ['menu','assets','settings'] : (p.type === 'tilemap' ? ['tilemap','assets','settings'] : ['tilemap','menu','assets','settings']);
+    const terrain = currentTerrain();
+    return `
+      <div class="workspace">
+        <div class="editor-top">
+          <div>
+            <h2 class="title">${safeText(p.name)}</h2>
+            <div class="muted">${currentProjectTypeLabel(p.type)} • ${p.terrains.length} terrain${p.terrains.length===1?'':'s'}</div>
+          </div>
+          <div class="tabs">${tabs.map(t=>`<button class="tab ${tab===t?'active':''}" data-tab="${t}">${t==='tilemap'?'Tilemap Editor':t==='menu'?'Game Menu':'Assets'}</button>`).join('')}<button class="tab" data-action="project-info">Project info</button></div>
+        </div>
+        ${tab === 'tilemap' ? renderTilemapEditor(p, terrain) : ''}
+        ${tab === 'menu' ? renderMenuEditor(p) : ''}
+        ${tab === 'assets' ? renderAssetsEditor(p) : ''}
+        ${tab === 'settings' ? renderProjectSettings(p) : ''}
+      </div>
+    `;
+  }
+  function renderTilemapEditor(p, terrain){
+    if(!terrain) return '<div class="card pad">No terrain yet.</div>';
+    const tiles = [
+      ['grass','🌿','Grass'],['water','💧','Water'],['tree','🌳','Tree'],['road','🛣️','Road'],
+      ['rock','🪨','Rock'],['house','🏠','House'],['sand','🟨','Sand'],['path','⬜','Path']
+    ];
+    const grid = terrain.tiles.map((row,y)=>row.map((tile,x)=>`<button class="tile ${state.ui.painting ? 'painting':''}" data-cell="${x},${y}" title="${tile}">${tileInfo(tile)[0]}</button>`).join('')).join('');
+    return `
+      <div class="map-area">
+        <div class="card map-stage">
+          <div class="editor-top">
+            <div>
+              <h4>Terrain: ${safeText(terrain.name)}</h4>
+              <div class="muted">${terrain.width} × ${terrain.height} • paint blocks on the grid</div>
+            </div>
+            <div class="toolbar">
+              <button class="btn secondary" data-action="terrain-expand">➕ Expand terrain</button>
+              <button class="btn good" data-action="terrain-add">+Terrain</button>
+              <button class="btn secondary" data-action="terrain-connect">🔗 Connect road</button>
+            </div>
+          </div>
+          <div class="tiles-grid" id="tilesGrid" style="grid-template-columns:repeat(${terrain.width}, minmax(0, 1fr));">${grid}</div>
+          <div class="footer-note">Tip: hold and drag to paint more quickly. The new +Terrain button creates a fresh connected terrain.</div>
+        </div>
+        <div class="card sidebar">
+          <div>
+            <h4>Terrain manager</h4>
+            <div class="list">${p.terrains.map(t=>`<div class="list-item ${t.id===terrain.id?'active':''}" data-terrain-select="${t.id}"><span>${safeText(t.name)}</span><span class="mini">${t.width}×${t.height}</span></div>`).join('')}</div>
+          </div>
+          <div>
+            <div class="section-head"><h4 style="margin:0">Tools</h4><span class="mini">selected: ${tileInfo(state.ui.paintTile)[1]}</span></div>
+            <div class="palette">${tiles.map(([id,emoji,label])=>`<button class="swatch ${state.ui.paintTile===id?'active':''}" data-paint-tile="${id}"><span class="emoji">${emoji}</span>${label}</button>`).join('')}</div>
+          </div>
+          <div>
+            <h4>Connections</h4>
+            <div class="stack">${p.terrains.flatMap(t => t.connections.map(c => `<div class="list-item"><span>${safeText(t.name)}</span><span class="mini">↔ ${safeText(c)}</span></div>`)).slice(0,8).join('') || '<div class="muted">No roads connected yet.</div>'}</div>
+          </div>
+          <div>
+            <h4>Sprite image</h4>
+            <div class="sprite-preview">
+              <div class="sprite-box" id="spriteBox">${p.assets.sprite ? `<img src="${p.assets.sprite}" alt="Sprite preview">` : '<span class="tiny">No image</span>'}</div>
+              <div class="inputs">
+                <div class="field"><label>Upload sprite image</label><input type="file" id="spriteUpload" accept="image/*" /></div>
+                <div class="toolbar"><button class="btn secondary" data-action="clear-sprite">Remove sprite</button></div>
+                <div class="tiny">This fixes the upload button and shows the chosen image instantly.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  function renderMenuEditor(p){
+    return `
+      <div class="card panel">
+        <div class="editor-top">
+          <div>
+            <h4>Game Menu Editor</h4>
+            <div class="muted">Build menus, HUDs, pause screens, and buttons.</div>
+          </div>
+          <div class="toolbar">
+            <button class="btn primary" data-action="menu-add-item">+ Add menu item</button>
+            <button class="btn secondary" data-action="menu-add-screen">+ Add screen</button>
+          </div>
+        </div>
+        <div class="grid cols2">
+          <div class="card pad">
+            <h4>Menu screens</h4>
+            <div class="stack">
+              <div class="list-item"><span>Main menu</span><span class="mini">Home</span></div>
+              <div class="list-item"><span>Pause menu</span><span class="mini">Overlay</span></div>
+              <div class="list-item"><span>Settings menu</span><span class="mini">Theme, text size</span></div>
+            </div>
+          </div>
+          <div class="card pad">
+            <h4>Controls</h4>
+            <div class="stack">
+              <div class="list-item"><span>Button</span><span class="mini">Action</span></div>
+              <div class="list-item"><span>Label</span><span class="mini">Text</span></div>
+              <div class="list-item"><span>Image</span><span class="mini">Sprite</span></div>
+              <div class="list-item"><span>Panel</span><span class="mini">Container</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  function renderAssetsEditor(p){
+    const assets = p.assets || {};
+    return `
+      <div class="card panel">
+        <div class="editor-top">
+          <div>
+            <h4>Asset Manager</h4>
+            <div class="muted">Import and preview images for your project.</div>
+          </div>
+        </div>
+        <div class="grid cols2">
+          <div class="card pad">
+            <div class="field">
+              <label>Sprite image</label>
+              <input type="file" id="assetSpriteUpload" accept="image/*" />
+            </div>
+            <div class="sprite-preview" style="margin-top:12px">
+              <div class="sprite-box" id="assetPreviewBox">${assets.sprite ? `<img src="${assets.sprite}" alt="Uploaded sprite">` : '<span class="tiny">Upload to preview</span>'}</div>
+              <div class="hint">If the uploaded image is a sprite sheet, the preview lets you verify it loaded correctly before using it in the editor.</div>
+            </div>
+            <div class="toolbar" style="margin-top:12px"><button class="btn secondary" data-action="clear-sprite">Clear sprite</button></div>
+          </div>
+          <div class="card pad">
+            <h4>Imported assets</h4>
+            <div class="stack">
+              <div class="list-item"><span>Tileset slots</span><span class="mini">Ready</span></div>
+              <div class="list-item"><span>Audio slots</span><span class="mini">Planned</span></div>
+              <div class="list-item"><span>Fonts</span><span class="mini">Planned</span></div>
+              <div class="list-item"><span>Icons</span><span class="mini">Planned</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  function renderProjectSettings(p){
+    return `
+      <div class="card panel">
+        <h4>Project settings</h4>
+        <div class="grid cols2">
+          <div class="field"><label>Project name</label><input id="projectNameEdit" value="${safeText(p.name)}" /></div>
+          <div class="field"><label>Project type</label>
+            <select id="projectTypeEdit">
+              <option value="menu" ${p.type==='menu'?'selected':''}>Game menu</option>
+              <option value="tilemap" ${p.type==='tilemap'?'selected':''}>Tilemap editor</option>
+              <option value="combined" ${p.type==='combined'?'selected':''}>Combined project</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px"><label>Description</label><textarea id="projectDescEdit">${safeText(p.description || '')}</textarea></div>
+        <div class="toolbar" style="margin-top:12px">
+          <button class="btn primary" data-action="save-project-meta">Save changes</button>
+          <button class="btn secondary" data-action="duplicate-project">Duplicate project</button>
+          <button class="btn danger" data-action="delete-current-project">Delete project</button>
+        </div>
+      </div>
+    `;
+  }
+  function renderSettings(){
+    return `
+      <section>
+        <div class="topbar">
+          <div>
+            <h2 class="title">Settings</h2>
+            <p class="subtitle">Themes, appearance, storage, and app information.</p>
+          </div>
+        </div>
+        <div class="grid cols2">
+          <div class="card pad">
+            <h3>Appearance</h3>
+            <div class="setting-row"><div><strong>Theme</strong><div class="mini">Light or dark mode</div></div><div class="toolbar"><button class="btn secondary" data-action="set-theme" data-value="light">Light</button><button class="btn secondary" data-action="set-theme" data-value="dark">Dark</button></div></div>
+            <div class="setting-row" style="margin-top:12px"><div><strong>Text size</strong><div class="mini">Adjust interface size</div></div><input id="textSizeRange" type="range" min="13" max="22" value="${state.settings.textSize}" /></div>
+            <div class="setting-row" style="margin-top:12px"><div><strong>Accent color</strong><div class="mini">Theme highlight color</div></div><input id="accentColor" type="color" value="${state.settings.accent || '#f7b84d'}" /></div>
+          </div>
+          <div class="card pad">
+            <h3>Storage & info</h3>
+            <div class="stack">
+              <div class="list-item"><span>Cached data</span><span class="mini">${localCacheKB()} KB</span></div>
+              <div class="list-item"><span>App version</span><span class="mini">${state.settings.version}</span></div>
+              <div class="list-item"><span>Permissions</span><span class="mini">Storage, photos, notifications</span></div>
+              <div class="list-item"><span>Terms & Privacy</span><span class="mini">Included in README</span></div>
+            </div>
+            <div class="toolbar" style="margin-top:12px">
+              <button class="btn secondary" data-action="clear-cache">Clear cache</button>
+              <button class="btn secondary" data-action="export-projects">Export all projects</button>
+              <button class="btn secondary" data-action="report-bug">Send feedback / report bug</button>
+            </div>
+          </div>
+        </div>
+        <div class="card pad section" style="margin-top:14px">
+          <h3>About this starter</h3>
+          <p class="subtitle">This version includes the app shell, project manager, editable terrains, connected +Terrain creation, and working sprite image upload preview. It is a foundation build we can keep expanding.</p>
+        </div>
+      </section>
+    `;
+  }
+  function render(){
+    refreshTheme();
+    document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.screen === state.ui.screen));
+    content.innerHTML = state.ui.screen === 'home' ? renderHome() : state.ui.screen === 'projects' ? renderProjects() : state.ui.screen === 'create' ? createProjectWizard() : renderSettings();
+    $('#fab').style.display = state.ui.screen === 'home' ? 'grid' : 'grid';
+    bindDynamic();
+    saveState();
+  }
+  function bindDynamic(){
+    // screen nav actions
+    content.querySelectorAll('[data-action="new-project"]').forEach(btn => btn.onclick = ()=> { state.ui.createStep = 0; state.ui.activeProjectId = null; setScreen('create'); });
+    content.querySelectorAll('[data-action="go-projects"]').forEach(btn => btn.onclick = ()=> setScreen('projects'));
+    content.querySelectorAll('[data-action="go-settings"]').forEach(btn => btn.onclick = ()=> setScreen('settings'));
+    content.querySelectorAll('[data-open-project]').forEach(el => el.onclick = ()=> openProject(el.dataset.openProject));
+
+    // projects page
+    const search = $('#projectSearch'); if(search) search.oninput = e => { state.ui.projectSearch = e.target.value; saveState(); render(); };
+    content.querySelectorAll('[data-kebab]').forEach(btn => btn.onclick = (e)=> { e.stopPropagation(); state.ui.menuOpenProjectId = state.ui.menuOpenProjectId === btn.dataset.kebab ? null : btn.dataset.kebab; saveState(); render(); });
+    content.querySelectorAll('[data-menu-for]').forEach(menu => { if(state.ui.menuOpenProjectId !== menu.dataset.menuFor) menu.classList.remove('open'); });
+    content.querySelectorAll('[data-project-open]').forEach(btn => btn.onclick = ()=> openProject(btn.dataset.projectOpen));
+    content.querySelectorAll('[data-project-rename]').forEach(btn => btn.onclick = ()=> openRenameDialog(btn.dataset.projectRename));
+    content.querySelectorAll('[data-project-duplicate]').forEach(btn => btn.onclick = ()=> duplicateProject(btn.dataset.projectDuplicate));
+    content.querySelectorAll('[data-project-favorite]').forEach(btn => btn.onclick = ()=> toggleFavorite(btn.dataset.projectFavorite));
+    content.querySelectorAll('[data-project-export]').forEach(btn => btn.onclick = ()=> exportProject(btn.dataset.projectExport));
+    content.querySelectorAll('[data-project-delete]').forEach(btn => btn.onclick = ()=> confirmDeleteProject(btn.dataset.projectDelete));
+
+    // drag reorder
+    const projectCards = [...content.querySelectorAll('[data-project-card]')];
+    let draggedId = null;
+    projectCards.forEach(card => {
+      card.addEventListener('dragstart', () => { draggedId = card.dataset.projectCard; card.classList.add('dragging'); });
+      card.addEventListener('dragend', () => { draggedId = null; card.classList.remove('dragging'); });
+      card.addEventListener('dragover', e => { e.preventDefault(); });
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        const targetId = card.dataset.projectCard;
+        if(!draggedId || draggedId === targetId) return;
+        const from = state.projects.findIndex(p => p.id === draggedId);
+        const to = state.projects.findIndex(p => p.id === targetId);
+        const [item] = state.projects.splice(from, 1);
+        state.projects.splice(to, 0, item);
+        saveState(); render();
+      });
+      card.addEventListener('click', (e)=> {
+        if(e.target.closest('.kebab')) return;
+        openProject(card.dataset.projectCard);
+      });
+    });
+
+    // create flow
+    content.querySelectorAll('[data-type-choice]').forEach(btn => btn.onclick = ()=> { state.ui.createType = btn.dataset.typeChoice; saveState(); render(); });
+    content.querySelector('[data-action="create-step-next"]')?.addEventListener('click', ()=> { state.ui.createStep = Math.min(2, (state.ui.createStep||0)+1); saveState(); render(); });
+    content.querySelector('[data-action="create-step-back"]')?.addEventListener('click', ()=> { state.ui.createStep = Math.max(0, (state.ui.createStep||0)-1); saveState(); render(); });
+    content.querySelector('[data-action="create-project"]')?.addEventListener('click', createProjectFromWizard);
+    content.querySelector('[data-action="close-project"]')?.addEventListener('click', ()=> { state.ui.activeProjectId = null; state.ui.activeTerrainId = null; setScreen('projects'); });
+
+    // editor tabs
+    content.querySelectorAll('[data-tab]').forEach(btn => btn.onclick = ()=> { state.ui.editorTab = btn.dataset.tab; saveState(); render(); });
+
+    // tilemap controls
+    content.querySelectorAll('[data-paint-tile]').forEach(btn => btn.onclick = ()=> { state.ui.paintTile = btn.dataset.paintTile; saveState(); render(); });
+    content.querySelectorAll('[data-terrain-select]').forEach(btn => btn.onclick = ()=> { state.ui.activeTerrainId = btn.dataset.terrainSelect; saveState(); render(); });
+    content.querySelector('[data-action="terrain-add"]')?.addEventListener('click', addConnectedTerrain);
+    content.querySelector('[data-action="terrain-connect"]')?.addEventListener('click', connectSelectedTerrains);
+    content.querySelector('[data-action="terrain-expand"]')?.addEventListener('click', expandCurrentTerrain);
+    content.querySelector('[data-action="clear-sprite"]')?.addEventListener('click', clearSprite);
+
+    // tile painting
+    const grid = $('#tilesGrid');
+    if(grid){
+      const paint = (cell)=> {
+        const [x,y] = cell.dataset.cell.split(',').map(Number);
+        const p = currentProject(); const t = currentTerrain(); if(!p || !t) return;
+        t.tiles[y][x] = state.ui.paintTile;
+        p.updatedAt = Date.now();
+        saveState(); render();
+      };
+      const cells = [...grid.querySelectorAll('[data-cell]')];
+      cells.forEach(cell => {
+        cell.addEventListener('pointerdown', (e)=> { e.preventDefault(); state.ui.painting = true; paint(cell); });
+        cell.addEventListener('pointerenter', ()=> { if(state.ui.painting) paint(cell); });
+      });
+      window.addEventListener('pointerup', ()=> { state.ui.painting = false; });
+    }
+
+    // sprite upload (works in Create > Assets and in Tilemap sidebar)
+    const spriteUpload = $('#spriteUpload');
+    const assetUpload = $('#assetSpriteUpload');
+    if(spriteUpload) spriteUpload.onchange = (e)=> handleSpriteUpload(e, 'sprite');
+    if(assetUpload) assetUpload.onchange = (e)=> handleSpriteUpload(e, 'asset');
+
+    // settings
+    const textSize = $('#textSizeRange'); if(textSize) textSize.oninput = (e)=> { state.settings.textSize = Number(e.target.value); saveState(); render(); };
+    const accentColor = $('#accentColor'); if(accentColor) accentColor.oninput = (e)=> { state.settings.accent = e.target.value; saveState(); render(); };
+    content.querySelectorAll('[data-action="set-theme"]').forEach(btn => btn.onclick = ()=> { state.settings.theme = btn.dataset.value; saveState(); render(); });
+    content.querySelector('[data-action="clear-cache"]')?.addEventListener('click', ()=> { clearAppCache(); });
+    content.querySelector('[data-action="export-projects"]')?.addEventListener('click', exportAllProjects);
+    content.querySelector('[data-action="report-bug"]')?.addEventListener('click', ()=> alert('Feedback/report bug: this starter is ready for a real bug report form next.'));
+    content.querySelector('[data-action="project-info"]')?.addEventListener('click', ()=> showModal(projectInfoModal()));
+    content.querySelector('[data-action="save-project-meta"]')?.addEventListener('click', saveProjectMeta);
+    content.querySelector('[data-action="duplicate-project"]')?.addEventListener('click', ()=> { const p = currentProject(); if(p) duplicateProject(p.id); });
+    content.querySelector('[data-action="delete-current-project"]')?.addEventListener('click', ()=> { const p = currentProject(); if(p) confirmDeleteProject(p.id); });
+    content.querySelector('[data-action="menu-add-item"]')?.addEventListener('click', ()=> showToast('Menu item builder will be added in the next milestone.'));
+    content.querySelector('[data-action="menu-add-screen"]')?.addEventListener('click', ()=> showToast('Menu screen builder will be added in the next milestone.'));
+  }
+  function projectInfoModal(){
+    const p = currentProject();
+    return `
+      <h3>Project info</h3>
+      <div class="stack">
+        <div class="list-item"><span>Name</span><span class="mini">${safeText(p.name)}</span></div>
+        <div class="list-item"><span>Type</span><span class="mini">${currentProjectTypeLabel(p.type)}</span></div>
+        <div class="list-item"><span>Terrains</span><span class="mini">${p.terrains.length}</span></div>
+        <div class="list-item"><span>Updated</span><span class="mini">${fmtDate(p.updatedAt)}</span></div>
+      </div>
+      <div class="modal-actions"><button class="btn primary" data-close-modal>Close</button></div>
+    `;
+  }
+  function showModal(html){ modalBackdrop.innerHTML = `<div class="card modal">${html}</div>`; modalBackdrop.classList.add('open'); modalBackdrop.onclick = (e)=> { if(e.target === modalBackdrop || e.target.matches('[data-close-modal]')) closeModal(); }; }
+  function closeModal(){ modalBackdrop.classList.remove('open'); modalBackdrop.innerHTML = ''; }
+  function createProjectFromWizard(){
+    const name = ($('#newProjectName')?.value || 'Untitled Project').trim();
+    const desc = ($('#newProjectDesc')?.value || '').trim();
+    const type = state.ui.createType || 'combined';
+    const preset = $('#newProjectPreset')?.value || 'empty';
+    const terrain = preset === 'forest' ? createTerrain('Forest', 24, 16) : preset === 'village' ? createTerrain('Village', 24, 16) : createTerrain('Terrain 1', 18, 12);
+    if(preset === 'forest') terrain.tiles = terrain.tiles.map((row,y)=>row.map((t,x)=> (y===0||x===0||x===terrain.width-1||y===terrain.height-1) ? 'tree' : (Math.random()>.78 ? 'tree' : 'grass')));
+    if(preset === 'village') terrain.tiles = terrain.tiles.map((row,y)=>row.map((t,x)=> (y===0||x===0||x===terrain.width-1||y===terrain.height-1) ? 'road' : (x%6===0||y%5===0 ? 'road' : 'grass')));
+    const project = {
+      id: uid(),
+      name, description: desc,
+      type, favorite:false,
+      createdAt: Date.now(), updatedAt: Date.now(),
+      assets:{ sprite:null },
+      terrains: [terrain]
+    };
+    state.projects.unshift(project);
+    state.ui.activeProjectId = project.id;
+    state.ui.activeTerrainId = terrain.id;
+    state.ui.editorTab = type === 'menu' ? 'menu' : 'tilemap';
+    state.ui.createStep = 0;
+    state.ui.modal = null;
+    saveState();
+    setScreen('create');
+    showToast('Project created');
+  }
+  function addConnectedTerrain(){
+    const p = currentProject(); if(!p) return;
+    const prev = p.terrains[p.terrains.length - 1];
+    const num = p.terrains.length + 1;
+    const t = createTerrain(`Terrain ${num}`, prev.width, prev.height);
+    // create a visible road connection on the touching edges
+    for(let y=0;y<t.height;y++){
+      t.tiles[y][0] = 'road';
+      prev.tiles[y][prev.width - 1] = 'road';
+    }
+    prev.connections.push(t.name);
+    t.connections.push(prev.name);
+    p.terrains.push(t);
+    state.ui.activeTerrainId = t.id;
+    saveState(); render();
+    showToast('New connected terrain created');
+  }
+  function connectSelectedTerrains(){
+    const p = currentProject(); if(!p || p.terrains.length < 2) return showToast('Add another terrain first');
+    const current = currentTerrain();
+    const index = p.terrains.findIndex(t=>t.id===current.id);
+    const next = p.terrains[(index + 1) % p.terrains.length];
+    if(!current || !next || current.id === next.id) return;
+    current.connections = Array.from(new Set([...(current.connections||[]), next.name]));
+    next.connections = Array.from(new Set([...(next.connections||[]), current.name]));
+    // draw matching road edges
+    for(let y=0;y<Math.min(current.height, next.height);y++){
+      current.tiles[y][current.width - 1] = 'road';
+      next.tiles[y][0] = 'road';
+    }
+    p.updatedAt = Date.now();
+    saveState(); render();
+    showToast(`Connected ${current.name} to ${next.name}`);
+  }
+  function expandCurrentTerrain(){
+    const p = currentProject(); const t = currentTerrain(); if(!p || !t) return;
+    const addW = 6, addH = 4;
+    const newWidth = t.width + addW, newHeight = t.height + addH;
+    const old = t.tiles.map(r => r.slice());
+    const newTiles = Array.from({length:newHeight}, (_,y)=> Array.from({length:newWidth}, (_,x)=> {
+      if (y < t.height && x < t.width) return old[y][x];
+      return 'grass';
+    }));
+    t.width = newWidth; t.height = newHeight; t.tiles = newTiles;
+    p.updatedAt = Date.now();
+    saveState(); render();
+    showToast('Terrain expanded');
+  }
+  function handleSpriteUpload(e, target){
+    const file = e.target.files?.[0]; if(!file) return;
+    if(!file.type.startsWith('image/')) return showToast('Please choose an image file');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      const p = currentProject(); if(!p) return;
+      p.assets = p.assets || {};
+      p.assets.sprite = dataUrl;
+      p.updatedAt = Date.now();
+      saveState(); render();
+      showToast('Sprite image uploaded');
+    };
+    reader.readAsDataURL(file);
+  }
+  function clearSprite(){
+    const p = currentProject(); if(!p) return;
+    p.assets = p.assets || {};
+    p.assets.sprite = null;
+    p.updatedAt = Date.now();
+    saveState(); render();
+    showToast('Sprite removed');
+  }
+  function saveProjectMeta(){
+    const p = currentProject(); if(!p) return;
+    const name = $('#projectNameEdit')?.value?.trim() || p.name;
+    const type = $('#projectTypeEdit')?.value || p.type;
+    const desc = $('#projectDescEdit')?.value || '';
+    p.name = name; p.type = type; p.description = desc; p.updatedAt = Date.now();
+    state.ui.editorTab = type === 'menu' ? 'menu' : (state.ui.editorTab === 'menu' && type === 'tilemap' ? 'tilemap' : state.ui.editorTab);
+    saveState(); render(); showToast('Project saved');
+  }
+  function duplicateProject(id){
+    const p = state.projects.find(x=>x.id===id); if(!p) return;
+    const copy = clone(p);
+    copy.id = uid();
+    copy.name = p.name + ' Copy';
+    copy.createdAt = Date.now();
+    copy.updatedAt = Date.now();
+    copy.favorite = false;
+    copy.terrains.forEach(t=>{ t.id = uid(); t.name = t.name + ' Copy'; });
+    state.projects.unshift(copy);
+    state.ui.menuOpenProjectId = null;
+    saveState(); render(); showToast('Project duplicated');
+  }
+  function toggleFavorite(id){
+    const p = state.projects.find(x=>x.id===id); if(!p) return;
+    p.favorite = !p.favorite;
+    state.ui.menuOpenProjectId = null;
+    saveState(); render();
+  }
+  function exportProject(id){
+    const p = state.projects.find(x=>x.id===id); if(!p) return;
+    downloadJSON(`${slugify(p.name)}.json`, p);
+  }
+  function exportAllProjects(){
+    downloadJSON('all-projects.json', state.projects);
+  }
+  function downloadJSON(filename, data){
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+    showToast(`Exported ${filename}`);
+  }
+  function slugify(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'project'; }
+  function confirmDeleteProject(id){
+    const p = state.projects.find(x=>x.id===id); if(!p) return;
+    showModal(`
+      <h3>Delete project?</h3>
+      <p class="muted">This will permanently remove <strong>${safeText(p.name)}</strong>.</p>
+      <div class="modal-actions">
+        <button class="btn secondary" data-close-modal>Cancel</button>
+        <button class="btn danger" data-confirm-delete="${id}">Delete</button>
+      </div>
+    `);
+    modalBackdrop.querySelector('[data-confirm-delete]')?.addEventListener('click', ()=>{
+      state.projects = state.projects.filter(x=>x.id!==id);
+      if(state.ui.activeProjectId===id){ state.ui.activeProjectId = null; state.ui.activeTerrainId = null; }
+      state.ui.menuOpenProjectId = null;
+      closeModal();
+      saveState(); render(); showToast('Project deleted');
+    });
+  }
+  function openRenameDialog(id){
+    const p = state.projects.find(x=>x.id===id); if(!p) return;
+    showModal(`
+      <h3>Rename project</h3>
+      <div class="field"><label>New name</label><input id="renameInput" value="${safeText(p.name)}" /></div>
+      <div class="modal-actions">
+        <button class="btn secondary" data-close-modal>Cancel</button>
+        <button class="btn primary" data-confirm-rename="${id}">Save</button>
+      </div>
+    `);
+    modalBackdrop.querySelector('[data-confirm-rename]')?.addEventListener('click', ()=>{
+      const value = modalBackdrop.querySelector('#renameInput')?.value?.trim();
+      if(value){ p.name = value; p.updatedAt = Date.now(); }
+      state.ui.menuOpenProjectId = null; closeModal(); saveState(); render(); showToast('Project renamed');
+    });
+  }
+  function clearAppCache(){
+    const keep = [LS_KEY];
+    const snapshot = {};
+    keep.forEach(k => { snapshot[k] = localStorage.getItem(k); });
+    localStorage.clear();
+    Object.entries(snapshot).forEach(([k,v]) => v != null && localStorage.setItem(k,v));
+    showToast('Cache cleared');
+    render();
+  }
+  function closeMenusOnOutsideClick(){
+    document.addEventListener('click', (e)=>{
+      if(e.target.closest('.menu') || e.target.closest('[data-kebab]')) return;
+      if(state.ui.menuOpenProjectId){ state.ui.menuOpenProjectId = null; saveState(); render(); }
+    });
+  }
+
+  // Global nav
+  document.querySelectorAll('.nav button').forEach(btn => btn.addEventListener('click', ()=> setScreen(btn.dataset.screen)));
+  $('#fab').addEventListener('click', ()=> { state.ui.createStep = 0; state.ui.activeProjectId = null; setScreen('create'); });
+  modalBackdrop.addEventListener('click', (e)=> { if(e.target === modalBackdrop) closeModal(); });
+  closeMenusOnOutsideClick();
+
+  // first render
+  refreshTheme();
+  render();
+  </script>
+</body>
+</html>
